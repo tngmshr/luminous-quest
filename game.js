@@ -632,7 +632,7 @@ async function openChest(x,y){
   else{G.items[c.item]+=c.n;await say(`たからばこを あけた!\n${ITEMS[c.item].n}を ${c.n}こ てにいれた!`);}
 }
 async function fieldSpell(){
-  const ms=G.party.filter(m=>spellsOf(m).includes('heal'));
+  const ms=G.party.filter(m=>m.hp>0&&spellsOf(m).includes('heal'));
   if(!ms.length){await say('いま つかえる じゅもんは ない。');return;}
   const m=ms.length===1?ms[0]:(await pickAlly(p=>ms.includes(p)));if(!m)return;
   const sp=SP.heal;if(m.mp<sp.mp){await say('MPが たりない!');return;}
@@ -645,7 +645,7 @@ async function fieldItem(){
   const list=Object.keys(ITEMS).filter(k=>G.items[k]>0);
   if(!list.length){await say('どうぐを なにも もっていない。');return;}
   const i=await menu(list.map(k=>`${ITEMS[k].n} ×${G.items[k]}`),{x:8,y:60});if(i<0)return;
-  const k=list[i],it=ITEMS[k],t=await pickAlly();if(!t)return;
+  const k=list[i],it=ITEMS[k],t=await pickAlly(p=>p.hp>0);if(!t)return;
   if(it.kind==='hp'?t.hp>=t.mhp:t.mp>=t.mmp){await say('こうかが ないようだ。');return;}
   G.items[k]--;se('heal');
   if(it.kind==='hp'){const v=Math.min(it.v,t.mhp-t.hp);t.hp+=v;await say(`${t.name}の HPが ${v}かいふくした!`);}
@@ -890,6 +890,8 @@ async function playerAct(a){
   if(a.type==='item'){
     const it=ITEMS[a.k];
     if(G.items[a.k]<=0){await blog('しかし なにも おこらなかった!',300);return;}
+    // えらんだ あいてが さきに たおれていたら、じぶんに つかう（ヒールと おなじ）。
+    if(a.target.hp<=0)a.target=m;
     G.items[a.k]--;await blog(`${m.name}は ${it.n}を つかった!`,250);se('heal');
     if(it.kind==='hp'){const v=Math.min(it.v,a.target.mhp-a.target.hp);a.target.hp+=v;await blog(`${a.target.name}の HPが ${v}かいふくした!`,300);}
     else{const v=Math.min(it.v,a.target.mmp-a.target.mp);a.target.mp+=v;await blog(`${a.target.name}の MPが ${v}かいふくした!`,300);}
@@ -1036,7 +1038,7 @@ async function startTitle(){
   scene='title';busy=true;title.menu=false;bgm('town');
   while(true){
     await waitKey(['ok']);title.menu=true;
-    const has=!!localStorage.getItem('luminous_save');
+    let has=false;try{has=!!localStorage.getItem('luminous_save');}catch(e){}
     const i=await menu(has?['はじめから','つづきから']:['はじめから'],{x:92,y:120,w:76});
     if(i<0){title.menu=false;continue;}
     if(i===1){try{G=JSON.parse(localStorage.getItem('luminous_save'));G.bag=G.bag||[];G.enc=G.enc||rnd(10,17);G.party.forEach(m=>{if(!m.eq)m.eq={...START_EQ[m.cls]};applyStats(m);m.hp=Math.min(m.hp,m.mhp);m.mp=Math.min(m.mp,m.mmp);});}catch(e){newGame();}resetChain();setMap(G.map);}
